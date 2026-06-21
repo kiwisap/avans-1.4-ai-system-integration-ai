@@ -12,7 +12,7 @@ env:
   ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
   AZURE_CONTAINER_APP: ${{ secrets.AZURE_CONTAINER_APP }}
   AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
-  IMAGE_NAME: waste-collection-api
+  IMAGE_NAME: trash-detection-ai-api
 
 jobs:
   build-and-deploy:
