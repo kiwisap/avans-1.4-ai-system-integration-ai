@@ -1,32 +1,53 @@
-"""FastAPI service for waste collection priority.
+"""FastAPI service voor afvalinzameling prioriteit.
 
 Endpoints:
-    POST /predict        location + environment parameters -> collection priority
-    GET  /health         status of the service, models and database
-    GET  /model/info     model version + metrics
-    GET  /predictions    recent predictions from SQL Server
+    POST /predict        locatie + omgevingsparameters -> inzamelprioriteit
+    GET  /health         status van de service, modellen en database
+    GET  /model/info     modelversie + metrics (vereist API key)
+    GET  /predictions    recente voorspellingen van SQL Server (vereist API key)
 
-The service recognizes the location type via reverse geocoding, predicts the base
-priority with the model, raises it live for nearby Ticketmaster events, and logs
-every prediction to SQL Server (if configured).
+De service herkent het locatietype via reverse geocoding, voorspelt de basis
+prioriteit met het model, verhoogt deze live voor nabijgelegen Ticketmaster events,
+en logt elke voorspelling naar SQL Server (indien geconfigureerd).
 """
 
 from __future__ import annotations
 
 import json
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Literal, Optional
 
 import joblib
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Security
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 
 from src import config, db, features
 from src.enrichment import event_calendar, events, location
 
 _state: dict = {"models": {}, "encoder": None, "metadata": None}
+
+# --- Autorisatie -----------------------------------------------------------
+API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+def _get_api_key() -> str:
+    """Haalt de verwachte API key op uit de omgevingsvariabele."""
+    return os.getenv("API_KEY", "default-insecure-key")
+
+
+def verify_api_key(api_key: str = Security(API_KEY_HEADER)):
+    """Dependency om de API key te verifiëren."""
+    expected_key = _get_api_key()
+    if api_key is None or api_key != expected_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Ongeldige of ontbrekende API key. Gebruik header 'X-API-Key'.",
+        )
+    return api_key
 
 
 def _load_models() -> None:
@@ -35,9 +56,9 @@ def _load_models() -> None:
         _state["models"]["decision_tree"] = joblib.load(config.DECISION_TREE_PATH)
         _state["encoder"] = joblib.load(config.ENCODER_PATH)
         _state["metadata"] = json.loads(config.METADATA_PATH.read_text())
-        print("API: models loaded")
+        print("API: modellen geladen")
     except Exception as exc:
-        print(f"API: models not loaded yet ({exc}) -- train first with src.train")
+        print(f"API: modellen nog niet geladen ({exc}) -- train eerst met src.train")
 
 
 @asynccontextmanager
@@ -48,9 +69,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Waste Collection Priority API",
-    description="Predicts the collection priority of (street) waste based on "
-    "location, weather and time, enriched with location type and live event data.",
+    title="Afvalinzameling Prioriteit API",
+    description="Voorspelt de inzamelprioriteit van (straat)afval op basis van "
+    "locatie, weer en tijd, verrijkt met locatietype en live evenementdata.",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -58,39 +79,41 @@ app = FastAPI(
 
 # --- Pydantic models -----------------------------------------------------
 class PredictionRequest(BaseModel):
-    latitude: float = Field(..., ge=-90, le=90, examples=[51.5887])
-    longitude: float = Field(..., ge=-180, le=180, examples=[4.7750])
+    latitude: float = Field(..., ge=-90, le=90, examples=[51.5887], description="Breedtegraad")
+    longitude: float = Field(..., ge=-180, le=180, examples=[4.7750], description="Lengtegraad")
     waste_type: Literal[
         "Residual", "Bulky", "Paper/Cardboard", "Plastic",
         "Electronics", "Glass", "Cans",
-    ] = Field(..., examples=["Plastic"])
-    temperature: float = Field(..., examples=[18.5])
+    ] = Field(..., examples=["Plastic"], description="Type afval")
+    temperature: float = Field(..., examples=[18.5], description="Temperatuur in °C")
     weather_type: Literal["Storm", "Cloudy", "Fog", "Rain", "Sunny"] = Field(
-        ..., examples=["Sunny"]
+        ..., examples=["Sunny"], description="Weertype"
     )
-    date_time: Optional[datetime] = Field(None, description="optional; defaults to now")
-    model: Literal["random_forest", "decision_tree"] = "random_forest"
+    date_time: Optional[datetime] = Field(None, description="Optioneel; standaard is nu")
+    model: Literal["random_forest", "decision_tree"] = Field(
+        default="random_forest", description="Model type"
+    )
 
 
 class EventOut(BaseModel):
-    name: str
-    date: str
-    type: str
+    name: str = Field(..., description="Naam van het evenement")
+    date: str = Field(..., description="Datum van het evenement")
+    type: str = Field(..., description="Type evenement")
 
 
 class LocationOut(BaseModel):
-    name: str
-    type: str
+    name: str = Field(..., description="Naam van de locatie")
+    type: str = Field(..., description="Type locatie")
 
 
 class PredictionResponse(BaseModel):
-    base_priority: str
-    final_priority: str
-    model: str
-    location: LocationOut
-    known_event: Optional[str]
-    nearby_events: list[EventOut]
-    explanation: str
+    base_priority: str = Field(..., description="Basis prioriteit van het model")
+    final_priority: str = Field(..., description="Eindprioriteit na aanpassing")
+    model: str = Field(..., description="Gebruikt model")
+    location: LocationOut = Field(..., description="Locatie informatie")
+    known_event: Optional[str] = Field(None, description="Bekend evenement uit de kalender")
+    nearby_events: list[EventOut] = Field(..., description="Nabijgelegen live evenementen")
+    explanation: str = Field(..., description="Uitleg van de voorspelling")
 
 
 # --- Helper --------------------------------------------------------------
@@ -114,30 +137,33 @@ def _build_request_dataframe(req: PredictionRequest, loc_type: str) -> pd.DataFr
 # --- Endpoints -----------------------------------------------------------
 @app.get("/health")
 def health():
+    """Health check endpoint (geen autorisatie vereist)."""
     return {
         "status": "ok",
         "models_loaded": bool(_state["models"]),
-        "database": "on" if db.is_enabled() else "off",
+        "database": "aan" if db.is_enabled() else "uit",
     }
 
 
 @app.get("/model/info")
-def model_info():
+def model_info(_: str = Security(verify_api_key)):
+    """Model informatie (vereist API key)."""
     if not _state["metadata"]:
-        raise HTTPException(503, "No model metadata; train the models first.")
+        raise HTTPException(503, "Geen model metadata; train de modellen eerst.")
     return _state["metadata"]
 
 
 @app.post("/predict", response_model=PredictionResponse)
-def predict(req: PredictionRequest):
+def predict(req: PredictionRequest, _: str = Security(verify_api_key)):
+    """Voorspel de inzamelprioriteit (vereist API key)."""
     model = _state["models"].get(req.model)
     encoder = _state["encoder"]
     if model is None or encoder is None:
         raise HTTPException(
-            503, "Models not loaded. Run first: python -m src.train"
+            503, "Modellen niet geladen. Voer eerst uit: python -m src.train"
         )
 
-    # 1. Recognize the location (park/square/...) and base prediction
+    # 1. Herken de locatie (park/plein/...) en basis voorspelling
     loc = location.lookup(req.latitude, req.longitude)
     when = req.date_time or datetime.now()
     calendar_event = event_calendar.event_for(req.latitude, req.longitude, when)
@@ -145,7 +171,7 @@ def predict(req: PredictionRequest):
     X = features.encode_features(df, encoder, fit=False)
     base_priority = str(model.predict(X)[0])
 
-    # 2. Fetch live events (Ticketmaster) and raise the priority if needed
+    # 2. Haal live evenementen op (Ticketmaster) en verhoog prioriteit indien nodig
     nearby = events.events_near(req.latitude, req.longitude)
     final_priority = events.adjust_priority(base_priority, nearby)
 
@@ -153,24 +179,24 @@ def predict(req: PredictionRequest):
     parts = []
     if calendar_event:
         parts.append(
-            f"known event '{event_name}' is taking place here -> "
-            "factored into the model"
+            f"bekend evenement '{event_name}' vindt hier plaats -> "
+            "meegenomen in het model"
         )
     if nearby and final_priority != base_priority:
         parts.append(
-            f"{len(nearby)} live event(s) nearby -> priority raised to "
+            f"{len(nearby)} live evenement(en) in de buurt -> prioriteit verhoogd naar "
             f"'{final_priority}'"
         )
     elif nearby:
-        parts.append(f"{len(nearby)} live event(s) nearby")
+        parts.append(f"{len(nearby)} live evenement(en) in de buurt")
     if not parts:
         parts.append(
-            f"no events at '{loc['name']}' ({loc['type']}); "
-            "priority follows the model"
+            f"geen evenementen bij '{loc['name']}' ({loc['type']}); "
+            "prioriteit volgt het model"
         )
     explanation = "; ".join(parts).capitalize() + "."
 
-    # 3. Log to SQL Server (no-op if the DB is disabled)
+    # 3. Log naar SQL Server (no-op als DB is uitgeschakeld)
     db.save_prediction(
         {
             "latitude": req.latitude,
@@ -198,7 +224,8 @@ def predict(req: PredictionRequest):
 
 
 @app.get("/predictions")
-def recent_predictions(limit: int = 20):
+def recent_predictions(limit: int = 20, _: str = Security(verify_api_key)):
+    """Recente voorspellingen uit de database (vereist API key)."""
     if not db.is_enabled():
-        return {"database": "off", "predictions": []}
-    return {"database": "on", "predictions": db.get_recent_predictions(limit)}
+        return {"database": "uit", "predictions": []}
+    return {"database": "aan", "predictions": db.get_recent_predictions(limit)}

@@ -4,12 +4,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # Optional DB settings for external SQL Server / Azure SQL.
-      # Leave empty to run the API without DB logging.
       DB_SERVER: "${DB_SERVER:-}"
       DB_PORT: "${DB_PORT:-1433}"
       DB_NAME: "${DB_NAME:-}"
       DB_USER: "${DB_USER:-}"
       DB_PASSWORD: "${DB_PASSWORD:-}"
-      # Provide your own key via a .env file or by exporting it in your shell.
+      API_KEY: "${API_KEY:-}"
       TICKETMASTER_API_KEY: "${TICKETMASTER_API_KEY:-}"

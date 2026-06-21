@@ -1,27 +1,28 @@
-"""Live event enrichment via the Ticketmaster Discovery API.
+"""Live evenement verrijking via de Ticketmaster Discovery API.
 
-Used at inference (in the /predict call) to check whether there are upcoming
-events near the given location. If so, the predicted collection priority is
-raised. This complements the events calendar, which already covers known
-recurring events; Ticketmaster adds live, commercial events.
+Gebruikt bij inferentie (in de /predict aanroep) om te controleren of er aankomende
+evenementen zijn nabij de gegeven locatie. Zo ja, dan wordt de voorspelde inzamel-
+prioriteit verhoogd. Dit vult de evenementenkalender aan, die al bekende terugkerende
+evenementen dekt; Ticketmaster voegt live, commerciële evenementen toe.
 
-Requires the environment variable TICKETMASTER_API_KEY. If it is missing or the
-call fails, the function degrades gracefully: no events, no priority increase.
+Vereist de omgevingsvariabele TICKETMASTER_API_KEY. Als deze ontbreekt of de
+aanroep mislukt, degradeert de functie netjes: geen evenementen, geen prioriteits-
+verhoging.
 """
 
 from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta, timezone
-from typing import List, TypedDict
+from typing import List, Optional, TypedDict
 
 import requests
 
 DISCOVERY_URL = "https://app.ticketmaster.com/discovery/v2/events.json"
 
-# Geohash encoder: Ticketmaster's geoPoint expects a geohash instead of the
-# deprecated latlong parameter. Precision 7 (~150 m) keeps the radius search
-# from being too narrow.
+# Geohash encoder: Ticketmaster's geoPoint verwacht een geohash in plaats van de
+# verouderde latlong parameter. Precisie 7 (~150 m) houdt de straalzoekopdracht
+# niet te smal.
 _BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz"
 
 
@@ -59,7 +60,7 @@ class Event(TypedDict):
     type: str
 
 
-def _api_key() -> str | None:
+def _api_key() -> Optional[str]:
     return os.getenv("TICKETMASTER_API_KEY")
 
 
@@ -70,10 +71,10 @@ def events_near(
     radius_km: int = 10,
     max_events: int = 20,
 ) -> List[Event]:
-    """Fetches upcoming events within a radius around the location.
+    """Haalt aankomende evenementen op binnen een straal rond de locatie.
 
-    Returns an empty list if there is no API key or the call fails, so the
-    prediction can always continue.
+    Geeft een lege lijst terug als er geen API key is of de aanroep mislukt,
+    zodat de voorspelling altijd kan doorgaan.
     """
     key = _api_key()
     if not key:
@@ -98,8 +99,8 @@ def events_near(
         resp = requests.get(DISCOVERY_URL, params=params, timeout=10)
         resp.raise_for_status()
         data = resp.json()
-    except Exception as exc:  # network/timeout/HTTP error -> no events
-        print(f"  ! Ticketmaster call failed: {exc}")
+    except Exception as exc:  # netwerk/timeout/HTTP fout -> geen evenementen
+        print(f"  ! Ticketmaster aanroep mislukt: {exc}")
         return []
 
     raw_events = data.get("_embedded", {}).get("events", [])
@@ -107,12 +108,12 @@ def events_near(
     events: List[Event] = []
     for ev in raw_events:
         classifications = ev.get("classifications", [])
-        segment = "unknown"
+        segment = "onbekend"
         if classifications:
-            segment = classifications[0].get("segment", {}).get("name", "unknown")
+            segment = classifications[0].get("segment", {}).get("name", "onbekend")
         events.append(
             {
-                "name": ev.get("name", "unknown"),
+                "name": ev.get("name", "onbekend"),
                 "date": ev.get("dates", {}).get("start", {}).get("localDate", ""),
                 "type": segment,
             }
@@ -124,11 +125,11 @@ _PRIORITY_ORDER = ["low", "medium", "high"]
 
 
 def adjust_priority(base_priority: str, events: List[Event]) -> str:
-    """Raises the priority based on the number of nearby events.
+    """Verhoogt de prioriteit op basis van het aantal nabijgelegen evenementen.
 
-    No events  -> unchanged
-    1-2 events -> one level up
-    3+ events  -> two levels up (capped at "high")
+    Geen evenementen  -> onveranderd
+    1-2 evenementen   -> één niveau omhoog
+    3+ evenementen    -> twee niveaus omhoog (max "high")
     """
     if base_priority not in _PRIORITY_ORDER:
         return base_priority

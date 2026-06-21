@@ -50,6 +50,7 @@ jobs:
           resourceGroup: ${{ env.AZURE_RESOURCE_GROUP }}
           imageToDeploy: ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           environmentVariables: >-
+            API_KEY=secretref:api-key
             DB_SERVER=secretref:db-server
             DB_PORT=secretref:db-port
             DB_NAME=secretref:db-name

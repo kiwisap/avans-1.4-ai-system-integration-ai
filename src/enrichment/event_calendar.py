@@ -1,12 +1,12 @@
-"""Curated events calendar for Breda.
+"""Samengestelde evenementenkalender voor Breda.
 
-Unlike Ticketmaster (only commercially ticketed events, no history), a calendar
-is known for both the past and the future. That lets "event" become a real model
-feature: derived per date + location during training, and in exactly the same way
-at inference.
+In tegenstelling tot Ticketmaster (alleen commercieel verkochte evenementen, geen
+geschiedenis), is een kalender bekend voor zowel verleden als toekomst. Dat laat
+"event" een echte model feature worden: afgeleid per datum + locatie tijdens training,
+en op exact dezelfde manier bij inferentie.
 
-Events recur annually; we match on (month, day) within a window and on distance
-to the event location. "size" (1-3) scales the effect.
+Evenementen herhalen zich jaarlijks; we matchen op (maand, dag) binnen een venster
+en op afstand tot de evenementlocatie. "size" (1-3) schaalt het effect.
 """
 
 from __future__ import annotations
@@ -15,25 +15,25 @@ import math
 from datetime import datetime
 from typing import Optional
 
-# name, lat, lon, radius_km, start (month, day), end (month, day), size
+# naam, lat, lon, radius_km, start (maand, dag), eind (maand, dag), grootte
 EVENTS = [
-    {"name": "Carnival", "lat": 51.5887, "lon": 4.7750, "radius_km": 2.0,
+    {"name": "Carnaval", "lat": 51.5887, "lon": 4.7750, "radius_km": 2.0,
      "start": (2, 14), "end": (2, 18), "size": 3},
-    {"name": "King's Day", "lat": 51.5887, "lon": 4.7750, "radius_km": 2.0,
+    {"name": "Koningsdag", "lat": 51.5887, "lon": 4.7750, "radius_km": 2.0,
      "start": (4, 27), "end": (4, 27), "size": 3},
-    {"name": "Liberation Festival", "lat": 51.5862, "lon": 4.7805, "radius_km": 1.2,
+    {"name": "Bevrijdingsfestival", "lat": 51.5862, "lon": 4.7805, "radius_km": 1.2,
      "start": (5, 5), "end": (5, 5), "size": 2},
     {"name": "Breda Jazz Festival", "lat": 51.5890, "lon": 4.7760, "radius_km": 2.0,
      "start": (5, 14), "end": (5, 17), "size": 3},
     {"name": "Breda Live", "lat": 51.5862, "lon": 4.7805, "radius_km": 1.2,
      "start": (6, 26), "end": (6, 28), "size": 3},
-    {"name": "Valkenberg Summer Festival", "lat": 51.5886, "lon": 4.7766, "radius_km": 0.8,
+    {"name": "Valkenberg Zomerfestival", "lat": 51.5886, "lon": 4.7766, "radius_km": 0.8,
      "start": (7, 10), "end": (7, 20), "size": 2},
-    {"name": "National Tattoo", "lat": 51.5887, "lon": 4.7750, "radius_km": 1.2,
+    {"name": "Nationale Taptoe", "lat": 51.5887, "lon": 4.7750, "radius_km": 1.2,
      "start": (9, 12), "end": (9, 14), "size": 2},
     {"name": "Breda Singelloop", "lat": 51.5880, "lon": 4.7780, "radius_km": 2.5,
      "start": (10, 4), "end": (10, 5), "size": 2},
-    {"name": "Ginneken Christmas Market", "lat": 51.5660, "lon": 4.7880, "radius_km": 1.0,
+    {"name": "Ginneken Kerstmarkt", "lat": 51.5660, "lon": 4.7880, "radius_km": 1.0,
      "start": (12, 14), "end": (12, 23), "size": 2},
 ]
 
@@ -52,7 +52,7 @@ def _doy(month: int, day: int) -> int:
 
 
 def event_for(lat: float, lon: float, when) -> Optional[dict]:
-    """Returns the (largest) event taking place at this location on this date."""
+    """Geeft het (grootste) evenement terug dat op deze locatie op deze datum plaatsvindt."""
     if not isinstance(when, datetime):
         when = datetime.fromisoformat(str(when))
     wd = when.timetuple().tm_yday
@@ -67,6 +67,6 @@ def event_for(lat: float, lon: float, when) -> Optional[dict]:
 
 
 def size_for(lat: float, lon: float, when) -> int:
-    """Returns 0 if no event is taking place, otherwise the size (1-3)."""
+    """Geeft 0 terug als er geen evenement plaatsvindt, anders de grootte (1-3)."""
     ev = event_for(lat, lon, when)
     return ev["size"] if ev else 0

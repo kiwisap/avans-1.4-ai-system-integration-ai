@@ -1,13 +1,14 @@
-"""Trains and evaluates a Decision Tree and a Random Forest on the Breda litter
-data, and saves the models + metadata.
+"""Traint en evalueert een Decision Tree en Random Forest op de Breda afvaldata,
+en slaat de modellen + metadata op.
 
-The target (collection priority) is derived from WasteAmount. Temperature and
-weather type are already in the dataset; the coordinates are enriched with a
-location type via reverse geocoding, and an event size via the events calendar.
+Het doel (inzamelprioriteit) wordt afgeleid van WasteAmount. Temperatuur en
+weertype zijn al in de dataset; de coördinaten worden verrijkt met een
+locatietype via reverse geocoding, en een evenementgrootte via de evenementen-
+kalender.
 
-Usage:
-    python -m src.train                # with location enrichment (Nominatim)
-    python -m src.train --no-enrich    # without (faster / offline testing)
+Gebruik:
+    python -m src.train                # met locatie verrijking (Nominatim)
+    python -m src.train --no-enrich    # zonder (sneller / offline testen)
 """
 
 from __future__ import annotations
@@ -34,17 +35,17 @@ from src.enrichment import location
 
 
 def evaluate(name: str, model, X_test, y_test) -> dict:
-    """Computes and prints the evaluation metrics for one model."""
+    """Berekent en print de evaluatie metrics voor één model."""
     preds = model.predict(X_test)
     acc = accuracy_score(y_test, preds)
     f1 = f1_score(y_test, preds, average="macro")
 
     print(f"\n=== {name} ===")
-    print(f"Accuracy  : {acc:.3f}")
-    print(f"F1 (macro): {f1:.3f}")
-    print("Classification report:")
+    print(f"Nauwkeurigheid  : {acc:.3f}")
+    print(f"F1 (macro)      : {f1:.3f}")
+    print("Classificatie rapport:")
     print(classification_report(y_test, preds, zero_division=0))
-    print("Confusion matrix (rows=actual, columns=predicted):")
+    print("Verwarringsmatrix (rijen=werkelijk, kolommen=voorspeld):")
     labels = sorted(pd.unique(y_test))
     print(pd.DataFrame(
         confusion_matrix(y_test, preds, labels=labels),
@@ -57,7 +58,7 @@ def evaluate(name: str, model, X_test, y_test) -> dict:
             key=lambda kv: kv[1], reverse=True,
         )
     )
-    print("Feature importance:")
+    print("Feature importantie:")
     for feat, imp in importances.items():
         print(f"  {feat:22s} {imp:.3f}")
 
@@ -69,17 +70,17 @@ def evaluate(name: str, model, X_test, y_test) -> dict:
 
 
 def main(enrich: bool = True) -> None:
-    print("1) Loading data, cleaning and deriving the target...")
+    print("1) Data laden, opschonen en doel afleiden...")
     df = data_loader.clean(data_loader.load_raw())
     df = data_loader.derive_target(df)
-    print(f"   {len(df)} rows. Priority distribution:")
+    print(f"   {len(df)} rijen. Prioriteit verdeling:")
     print(df[config.TARGET].value_counts().to_string())
 
     if enrich:
-        print("2) Deriving location type via reverse geocoding (Nominatim)...")
+        print("2) Locatietype afleiden via reverse geocoding (Nominatim)...")
         df = location.enrich(df, config.COL_LAT, config.COL_LON, config.COL_LOCATION_TYPE)
     else:
-        print("2) Enrichment skipped (--no-enrich) -> location_type = 'other'")
+        print("2) Verrijking overgeslagen (--no-enrich) -> location_type = 'other'")
 
     print("3) Feature engineering...")
     df = data_loader.add_date_features(df)
@@ -96,7 +97,7 @@ def main(enrich: bool = True) -> None:
     X_train = features.encode_features(df_train, encoder, fit=True)
     X_test = features.encode_features(df_test, encoder, fit=False)
 
-    print("5) Training models...")
+    print("5) Modellen trainen...")
     dt = DecisionTreeClassifier(max_depth=6, random_state=config.RANDOM_STATE)
     rf = RandomForestClassifier(
         n_estimators=300, max_depth=10, random_state=config.RANDOM_STATE, n_jobs=-1
@@ -104,11 +105,11 @@ def main(enrich: bool = True) -> None:
     dt.fit(X_train, y_train)
     rf.fit(X_train, y_train)
 
-    print("6) Evaluating...")
+    print("6) Evalueren...")
     dt_metrics = evaluate("Decision Tree", dt, X_test, y_test)
     rf_metrics = evaluate("Random Forest", rf, X_test, y_test)
 
-    print("\n7) Saving models...")
+    print("\n7) Modellen opslaan...")
     joblib.dump(dt, config.DECISION_TREE_PATH)
     joblib.dump(rf, config.RANDOM_FOREST_PATH)
     joblib.dump(encoder, config.ENCODER_PATH)
@@ -127,7 +128,7 @@ def main(enrich: bool = True) -> None:
     }
     config.METADATA_PATH.write_text(json.dumps(metadata, indent=2))
 
-    print(f"   Models saved in {config.MODELS_DIR}")
+    print(f"   Modellen opgeslagen in {config.MODELS_DIR}")
     print(f"   Metadata: {config.METADATA_PATH}")
 
 
@@ -135,7 +136,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--no-enrich", action="store_true",
-        help="skip the reverse-geocoding enrichment (faster / offline)",
+        help="sla de reverse-geocoding verrijking over (sneller / offline)",
     )
     args = parser.parse_args()
     main(enrich=not args.no_enrich)
