@@ -49,7 +49,7 @@ jobs:
           containerAppName: ${{ env.AZURE_CONTAINER_APP }}
           resourceGroup: ${{ env.AZURE_RESOURCE_GROUP }}
           imageToDeploy: ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          environmentVariables: |
+          environmentVariables: >-
             DB_SERVER=secretref:db-server
             DB_PORT=secretref:db-port
             DB_NAME=secretref:db-name

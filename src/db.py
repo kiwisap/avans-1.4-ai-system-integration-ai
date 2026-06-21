@@ -19,19 +19,31 @@ _engine = None
 _enabled = False
 
 
-def _build_connection_url() -> Optional[str]:
+def _build_connection_url():
     server = os.getenv("DB_SERVER")
     name = os.getenv("DB_NAME")
     user = os.getenv("DB_USER")
     password = os.getenv("DB_PASSWORD")
-    port = os.getenv("DB_PORT", "1433")
+    port = int(os.getenv("DB_PORT", "1433"))
 
     if not all([server, name, user, password]):
         return None
 
-    return (
-        f"mssql+pyodbc://{user}:{password}@{server}:{port}/{name}"
-        "?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+    # URL.create escapes special characters in the username/password for us,
+    # so passwords containing @ : / ? # % etc. work without manual encoding.
+    from sqlalchemy.engine import URL
+
+    return URL.create(
+        "mssql+pyodbc",
+        username=user,
+        password=password,
+        host=server,
+        port=port,
+        database=name,
+        query={
+            "driver": "ODBC Driver 18 for SQL Server",
+            "TrustServerCertificate": "yes",
+        },
     )
 
 
