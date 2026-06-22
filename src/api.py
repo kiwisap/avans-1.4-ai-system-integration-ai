@@ -84,7 +84,7 @@ class PredictionRequest(BaseModel):
     trash_type: Literal[
         "Residual", "Bulky", "Paper/Cardboard", "Plastic",
         "Electronics", "Glass", "Cans",
-    ]] = Field(None, examples=["Plastic"], description="Type afval (optioneel; wordt voorspeld indien niet opgegeven)")
+    ] = Field(None, examples=["Plastic"], description="Type afval (optioneel; wordt voorspeld indien niet opgegeven)")
     temperature: float = Field(..., examples=[18.5], description="Temperatuur in °C")
     weather_type: Literal["Storm", "Cloudy", "Fog", "Rain", "Sunny"] = Field(
         ..., examples=["Sunny"], description="Weertype"
