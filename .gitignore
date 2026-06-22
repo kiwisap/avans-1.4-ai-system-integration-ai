@@ -44,13 +44,9 @@ venv.bak/
 .env
 .env.local
 
-# Models (optional - uncomment if models should not be versioned)
-# models/*.pkl
-# models/*.json
-
 # Data (optional - uncomment to ignore data files)
-# data/*.csv
-# data/*.json
+data/*.csv
+data/*.json
 
 # Docker
 *.log
