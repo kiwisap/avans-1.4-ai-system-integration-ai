@@ -15,9 +15,32 @@ env:
   IMAGE_NAME: trash-detection-ai-api
 
 jobs:
-  build-and-deploy:
+  validate:
+    name: Validate Project
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Check project is runnable
+        run: |
+          echo "Installing dependencies..."
+          pip install -r requirements.txt
+          
+          echo "Checking Python syntax..."
+          python -m py_compile src/*.py src/enrichment/*.py
+          
+          echo "Testing imports..."
+          python -c "import sys; sys.path.insert(0, '.'); from src import config, api"
+
+  build-and-deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -60,4 +83,3 @@ jobs:
 
       - name: Logout from Azure
         run: az logout
-
