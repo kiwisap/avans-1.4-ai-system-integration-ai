@@ -28,7 +28,14 @@ from pydantic import BaseModel, Field
 from src import config, db, features
 from src.enrichment import event_calendar, events, location
 
-_state: dict = {"models": {}, "encoder": None, "metadata": None}
+_state: dict = {
+    "models": {},
+    "encoder": None,
+    "metadata": None,
+    "trash_type_models": {},
+    "trash_type_encoder": None,
+    "amount_model": None,
+}
 
 # --- Authorization ---------------------------------------------------------
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -52,11 +59,21 @@ def verify_api_key(api_key: str = Security(API_KEY_HEADER)):
 
 def _load_models() -> None:
     try:
+        # Load priority prediction models
         _state["models"]["random_forest"] = joblib.load(config.RANDOM_FOREST_PATH)
         _state["models"]["decision_tree"] = joblib.load(config.DECISION_TREE_PATH)
         _state["encoder"] = joblib.load(config.ENCODER_PATH)
         _state["metadata"] = json.loads(config.METADATA_PATH.read_text())
-        print("API: modellen geladen")
+
+        # Load trash type prediction models
+        _state["trash_type_models"]["random_forest"] = joblib.load(config.TRASH_TYPE_RF_PATH)
+        _state["trash_type_models"]["decision_tree"] = joblib.load(config.TRASH_TYPE_DT_PATH)
+        _state["trash_type_encoder"] = joblib.load(config.TRASH_TYPE_ENCODER_PATH)
+
+        # Load amount prediction model
+        _state["amount_model"] = joblib.load(config.AMOUNT_RF_PATH)
+
+        print("API: alle modellen geladen")
     except Exception as exc:
         print(f"API: modellen nog niet geladen ({exc}) -- train eerst met src.train")
 
