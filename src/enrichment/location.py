@@ -17,7 +17,7 @@ from typing import Dict, Tuple
 import requests
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
-USER_AGENT = "waste-collection-priority/1.0 (Avans student project)"
+USER_AGENT = "zwerfafvalherkenning/1.0"
 
 _CACHE: Dict[Tuple[float, float], dict] = {}
 

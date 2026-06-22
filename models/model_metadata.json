@@ -1,15 +1,15 @@
 {
-  "trained_at": "2026-06-21T13:52:24.453278+00:00",
+  "trained_at": "2026-06-22T20:39:45.352353+00:00",
   "n_samples": 3000,
   "target": "collection_priority",
-  "target_derived_from": "WasteAmount",
+  "target_derived_from": "TrashAmount",
   "classes": [
     "low",
     "medium",
     "high"
   ],
   "features": [
-    "WasteType",
+    "TrashType",
     "WeatherType",
     "location_type",
     "Temperature",
@@ -19,33 +19,58 @@
     "event_size"
   ],
   "location_enriched": true,
-  "decision_tree": {
-    "accuracy": 0.7233,
-    "f1_macro": 0.665,
-    "feature_importance": {
-      "event_size": 0.3179,
-      "WeatherType": 0.2804,
-      "Temperature": 0.257,
-      "hour": 0.0883,
-      "day_of_week": 0.028,
-      "month": 0.0143,
-      "WasteType": 0.0142,
-      "location_type": 0.0
-    }
+  "priority_task": {
+    "decision_tree": {
+      "accuracy": 0.7233,
+      "f1_macro": 0.665,
+      "feature_importance": {
+        "event_size": 0.3179,
+        "WeatherType": 0.2804,
+        "Temperature": 0.257,
+        "hour": 0.0883,
+        "day_of_week": 0.028,
+        "month": 0.0143,
+        "TrashType": 0.0142,
+        "location_type": 0.0
+      }
+    },
+    "random_forest": {
+      "accuracy": 0.755,
+      "f1_macro": 0.6898,
+      "feature_importance": {
+        "Temperature": 0.2303,
+        "event_size": 0.194,
+        "WeatherType": 0.1845,
+        "hour": 0.1217,
+        "month": 0.1192,
+        "TrashType": 0.0788,
+        "day_of_week": 0.0713,
+        "location_type": 0.0002
+      }
+    },
+    "production_model": "random_forest"
   },
-  "random_forest": {
-    "accuracy": 0.755,
-    "f1_macro": 0.6898,
-    "feature_importance": {
-      "Temperature": 0.2303,
-      "event_size": 0.194,
-      "WeatherType": 0.1845,
-      "hour": 0.1217,
-      "month": 0.1192,
-      "WasteType": 0.0788,
-      "day_of_week": 0.0713,
-      "location_type": 0.0002
-    }
+  "trash_type_task": {
+    "decision_tree": {
+      "accuracy": 0.2117,
+      "f1_macro": 0.1705
+    },
+    "random_forest": {
+      "accuracy": 0.2017,
+      "f1_macro": 0.1507
+    },
+    "features": [
+      "WeatherType",
+      "location_type",
+      "Temperature",
+      "hour",
+      "day_of_week",
+      "month",
+      "event_size"
+    ]
   },
-  "production_model": "random_forest"
+  "amount_task": {
+    "mae": 1.5051,
+    "r2": 0.8775
+  }
 }

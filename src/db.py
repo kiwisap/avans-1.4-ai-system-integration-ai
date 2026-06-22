@@ -72,7 +72,7 @@ def init_db() -> bool:
                         timestamp DATETIME2 NOT NULL,
                         latitude FLOAT NOT NULL,
                         longitude FLOAT NOT NULL,
-                        waste_type NVARCHAR(50) NOT NULL,
+                        trash_type NVARCHAR(50) NOT NULL,
                         temperature FLOAT NOT NULL,
                         weather_type NVARCHAR(50) NOT NULL,
                         location_type NVARCHAR(50) NOT NULL,
@@ -109,11 +109,11 @@ def save_prediction(record: dict) -> None:
                 text(
                     """
                     INSERT INTO predictions
-                        (timestamp, latitude, longitude, waste_type,
+                        (timestamp, latitude, longitude, trash_type,
                          temperature, weather_type, location_type,
                          base_priority, final_priority, nearby_events_count, model)
                     VALUES
-                        (:timestamp, :latitude, :longitude, :waste_type,
+                        (:timestamp, :latitude, :longitude, :trash_type,
                          :temperature, :weather_type, :location_type,
                          :base_priority, :final_priority, :nearby_events_count, :model)
                     """

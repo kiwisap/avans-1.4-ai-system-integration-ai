@@ -22,7 +22,7 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def derive_target(df: pd.DataFrame) -> pd.DataFrame:
-    """Derives the collection priority from WasteAmount via binning."""
+    """Derives the collection priority from TrashAmount via binning."""
     df = df.copy()
     df[config.TARGET] = pd.cut(
         df[config.COL_AMOUNT],

@@ -67,6 +67,6 @@ def event_for(lat: float, lon: float, when) -> Optional[dict]:
 
 
 def size_for(lat: float, lon: float, when) -> int:
-    """Geeft 0 terug als er geen evenement plaatsvindt, anders de grootte (1-3)."""
+    """Returns 0 if no event is occurring, otherwise the size (1-3)."""
     ev = event_for(lat, lon, when)
     return ev["size"] if ev else 0
