@@ -71,8 +71,3 @@ TRASH_TYPE_NUMERIC_FEATURES = [COL_TEMP, COL_HOUR, COL_DOW, COL_MONTH, COL_EVENT
 TRASH_TYPE_DT_PATH = MODELS_DIR / "trash_type_decision_tree.pkl"
 TRASH_TYPE_RF_PATH = MODELS_DIR / "trash_type_random_forest.pkl"
 TRASH_TYPE_ENCODER_PATH = MODELS_DIR / "trash_type_encoder.pkl"
-
-# Amount regressor (predicts expected TrashAmount; reuses the priority encoder
-# because it uses the same feature columns)
-AMOUNT_RF_PATH = MODELS_DIR / "amount_random_forest.pkl"
-

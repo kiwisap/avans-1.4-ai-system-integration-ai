@@ -118,46 +118,6 @@ def train_trash_type_classifier(df: pd.DataFrame) -> dict:
     }
 
 
-def train_amount_regressor(df: pd.DataFrame, encoder) -> dict:
-    """Trains amount regressor (reuses priority encoder and features)."""
-    from sklearn.ensemble import RandomForestRegressor
-    from sklearn.metrics import mean_absolute_error, r2_score
-
-    print("\n--- Training Amount Regressor ---")
-    y = df[config.COL_AMOUNT]
-    df_train, df_test, y_train, y_test = train_test_split(
-        df, y, test_size=0.2, random_state=config.RANDOM_STATE
-    )
-    X_train = features.encode_features(
-        df_train, encoder, fit=False,
-        categorical=config.CATEGORICAL_FEATURES,
-        numeric=config.NUMERIC_FEATURES
-    )
-    X_test = features.encode_features(
-        df_test, encoder, fit=False,
-        categorical=config.CATEGORICAL_FEATURES,
-        numeric=config.NUMERIC_FEATURES
-    )
-
-    rf = RandomForestRegressor(
-        n_estimators=300, max_depth=12, random_state=config.RANDOM_STATE, n_jobs=-1
-    )
-    rf.fit(X_train, y_train)
-    preds = rf.predict(X_test)
-
-    mae = mean_absolute_error(y_test, preds)
-    r2 = r2_score(y_test, preds)
-
-    print(f"  Amount Regressor -> MAE: {mae:.2f}, R2: {r2:.3f}")
-
-    joblib.dump(rf, config.AMOUNT_RF_PATH)
-
-    return {
-        "mae": round(mae, 4),
-        "r2": round(r2, 4),
-    }
-
-
 def main(enrich: bool = True) -> None:
     print("1) Data laden, opschonen en doel afleiden...")
     df = data_loader.clean(data_loader.load_raw())
@@ -206,9 +166,6 @@ def main(enrich: bool = True) -> None:
     # Train trash-type classifier
     trash_type_metrics = train_trash_type_classifier(df)
 
-    # Train amount regressor (reuses the priority encoder)
-    amount_metrics = train_amount_regressor(df, encoder)
-
     metadata = {
         "trained_at": datetime.now(timezone.utc).isoformat(),
         "n_samples": len(df),
@@ -223,7 +180,6 @@ def main(enrich: bool = True) -> None:
             "production_model": "random_forest",
         },
         "trash_type_task": trash_type_metrics,
-        "amount_task": amount_metrics,
     }
     config.METADATA_PATH.write_text(json.dumps(metadata, indent=2))
 

@@ -33,8 +33,7 @@ _state: dict = {
     "encoder": None,
     "metadata": None,
     "trash_type_models": {},
-    "trash_type_encoder": None,
-    "amount_model": None,
+    "trash_type_encoder": None
 }
 
 # --- Authorization ---------------------------------------------------------
@@ -69,9 +68,6 @@ def _load_models() -> None:
         _state["trash_type_models"]["random_forest"] = joblib.load(config.TRASH_TYPE_RF_PATH)
         _state["trash_type_models"]["decision_tree"] = joblib.load(config.TRASH_TYPE_DT_PATH)
         _state["trash_type_encoder"] = joblib.load(config.TRASH_TYPE_ENCODER_PATH)
-
-        # Load amount prediction model
-        _state["amount_model"] = joblib.load(config.AMOUNT_RF_PATH)
 
         print("API: alle modellen geladen")
     except Exception as exc:
@@ -138,7 +134,6 @@ class PredictionResponse(BaseModel):
     explanation: str = Field(..., description="Uitleg van de voorspelling")
     # New fields
     priority_probabilities: list[ClassProbability] = Field(..., description="Prioriteit waarschijnlijkheden per klasse")
-    estimated_amount: Optional[float] = Field(None, description="Voorspelde afvalhoeveelheid")
     trash_type: str = Field(..., description="Gebruikt/voorspeld afvaltype")
     trash_type_provided: bool = Field(..., description="Of afvaltype was opgegeven")
     trash_type_probabilities: list[ClassProbability] = Field(..., description="Afvaltype waarschijnlijkheden per klasse")
@@ -152,7 +147,7 @@ def _predict_trash_type(lat: float, lon: float, weather: str, temp: float, when:
 
     if model is None or encoder is None:
         # Fallback to most common type if model not loaded
-        return ("Plastic", [("Plastic", 1.0)])
+        return "Plastic", [("Plastic", 1.0)]
 
     row = {
         config.COL_WEATHER: weather,
@@ -261,19 +256,11 @@ def predict(req: PredictionRequest, _: str = Security(verify_api_key)):
     ]
     priority_probs.sort(key=lambda x: x[1], reverse=True)
 
-    # 4. Predict estimated amount
-    estimated_amount = None
-    if _state["amount_model"] is not None:
-        try:
-            estimated_amount = float(_state["amount_model"].predict(X)[0])
-        except Exception:
-            pass  # Silently fallback to None
-
-    # 5. Get live events (Ticketmaster) and adjust priority if needed
+    # 4. Get live events (Ticketmaster) and adjust priority if needed
     nearby = events.events_near(req.latitude, req.longitude)
     final_priority = events.adjust_priority(base_priority, nearby)
 
-    # 6. Build explanation
+    # 5. Build explanation
     event_name = calendar_event["name"] if calendar_event else None
     parts = []
     if not trash_type_provided:
@@ -297,7 +284,7 @@ def predict(req: PredictionRequest, _: str = Security(verify_api_key)):
         )
     explanation = "; ".join(parts).capitalize() + "."
 
-    # 7. Log to SQL Server (no-op if DB is disabled)
+    # 6. Log to SQL Server (no-op if DB is disabled)
     db.save_prediction(
         {
             "latitude": req.latitude,
@@ -325,7 +312,6 @@ def predict(req: PredictionRequest, _: str = Security(verify_api_key)):
             ClassProbability(label=label, probability=prob)
             for label, prob in priority_probs
         ],
-        estimated_amount=estimated_amount,
         trash_type=effective_type,
         trash_type_provided=trash_type_provided,
         trash_type_probabilities=[
