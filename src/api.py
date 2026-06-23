@@ -94,15 +94,15 @@ app = FastAPI(
 class PredictionRequest(BaseModel):
     latitude: float = Field(..., ge=-90, le=90, examples=[51.5887], description="Breedtegraad")
     longitude: float = Field(..., ge=-180, le=180, examples=[4.7750], description="Lengtegraad")
-    trash_type: Literal[
+    trashType: Literal[
         "Residual", "Bulky", "Paper/Cardboard", "Plastic",
         "Electronics", "Glass", "Cans",
     ] = Field(None, examples=["Plastic"], description="Type afval (optioneel; wordt voorspeld indien niet opgegeven)")
     temperature: float = Field(..., examples=[18.5], description="Temperatuur in °C")
-    weather_type: Literal["Storm", "Cloudy", "Fog", "Rain", "Sunny"] = Field(
+    weatherType: Literal["Storm", "Cloudy", "Fog", "Rain", "Sunny"] = Field(
         ..., examples=["Sunny"], description="Weertype"
     )
-    date_time: Optional[datetime] = Field(None, description="Optioneel; standaard is nu")
+    dateTime: Optional[datetime] = Field(None, description="Optioneel; standaard is nu")
     model: Literal["random_forest", "decision_tree"] = Field(
         default="random_forest", description="Model type"
     )
@@ -125,18 +125,18 @@ class LocationOut(BaseModel):
 
 
 class PredictionResponse(BaseModel):
-    base_priority: str = Field(..., description="Basis prioriteit van het model")
-    final_priority: str = Field(..., description="Eindprioriteit na aanpassing")
+    basePriority: str = Field(..., description="Basis prioriteit van het model")
+    finalPriority: str = Field(..., description="Eindprioriteit na aanpassing")
     model: str = Field(..., description="Gebruikt model")
     location: LocationOut = Field(..., description="Locatie informatie")
-    known_event: Optional[str] = Field(None, description="Bekend evenement uit de kalender")
-    nearby_events: list[EventOut] = Field(..., description="Nabijgelegen live evenementen")
+    knownEvent: Optional[str] = Field(None, description="Bekend evenement uit de kalender")
+    nearbyEvents: list[EventOut] = Field(..., description="Nabijgelegen live evenementen")
     explanation: str = Field(..., description="Uitleg van de voorspelling")
     # New fields
-    priority_probabilities: list[ClassProbability] = Field(..., description="Prioriteit waarschijnlijkheden per klasse")
-    trash_type: str = Field(..., description="Gebruikt/voorspeld afvaltype")
-    trash_type_provided: bool = Field(..., description="Of afvaltype was opgegeven")
-    trash_type_probabilities: list[ClassProbability] = Field(..., description="Afvaltype waarschijnlijkheden per klasse")
+    priorityProbabilities: list[ClassProbability] = Field(..., description="Prioriteit waarschijnlijkheden per klasse")
+    trashType: str = Field(..., description="Gebruikt/voorspeld afvaltype")
+    trashTypeProvided: bool = Field(..., description="Of afvaltype was opgegeven")
+    trashTypeProbabilities: list[ClassProbability] = Field(..., description="Afvaltype waarschijnlijkheden per klasse")
 
 
 # --- Helper --------------------------------------------------------------
@@ -221,28 +221,28 @@ def predict(req: PredictionRequest, _: str = Security(verify_api_key)):
 
     # 1. Recognize location and get event info
     loc = location.lookup(req.latitude, req.longitude)
-    when = req.date_time or datetime.now()
+    when = req.dateTime or datetime.now()
     calendar_event = event_calendar.event_for(req.latitude, req.longitude, when)
     event_size = event_calendar.size_for(req.latitude, req.longitude, when)
 
     # 2. Predict Trash type if not provided
-    trash_type_provided = req.trash_type is not None
+    trash_type_provided = req.trashType is not None
     if trash_type_provided:
-        effective_type = req.trash_type
+        effective_type = req.trashType
         # Still get probabilities for provided type
         _, trash_type_probs = _predict_trash_type(
-            req.latitude, req.longitude, req.weather_type, req.temperature,
+            req.latitude, req.longitude, req.weatherType, req.temperature,
             when, loc["type"], event_size
         )
     else:
         effective_type, trash_type_probs = _predict_trash_type(
-            req.latitude, req.longitude, req.weather_type, req.temperature,
+            req.latitude, req.longitude, req.weatherType, req.temperature,
             when, loc["type"], event_size
         )
 
     # 3. Build features and predict priority with probabilities
     df = _build_request_dataframe(
-        effective_type, req.weather_type, loc["type"],
+        effective_type, req.weatherType, loc["type"],
         req.temperature, when, event_size
     )
     X = features.encode_features(df, encoder, fit=False)
@@ -291,7 +291,7 @@ def predict(req: PredictionRequest, _: str = Security(verify_api_key)):
             "longitude": req.longitude,
             "trash_type": effective_type,
             "temperature": req.temperature,
-            "weather_type": req.weather_type,
+            "weather_type": req.weatherType,
             "location_type": loc["type"],
             "base_priority": base_priority,
             "final_priority": final_priority,
@@ -301,20 +301,20 @@ def predict(req: PredictionRequest, _: str = Security(verify_api_key)):
     )
 
     return PredictionResponse(
-        base_priority=base_priority,
-        final_priority=final_priority,
+        basePriority=base_priority,
+        finalPriority=final_priority,
         model=req.model,
         location=LocationOut(name=loc["name"], type=loc["type"]),
-        known_event=event_name,
-        nearby_events=[EventOut(**e) for e in nearby],
+        knownEvent=event_name,
+        nearbyEvents=[EventOut(**e) for e in nearby],
         explanation=explanation,
-        priority_probabilities=[
+        priorityProbabilities=[
             ClassProbability(label=label, probability=prob)
             for label, prob in priority_probs
         ],
-        trash_type=effective_type,
-        trash_type_provided=trash_type_provided,
-        trash_type_probabilities=[
+        trashType=effective_type,
+        trashTypeProvided=trash_type_provided,
+        trashTypeProbabilities=[
             ClassProbability(label=label, probability=prob)
             for label, prob in trash_type_probs
         ],
@@ -333,12 +333,12 @@ class TrashTypeRequest(BaseModel):
     latitude: float = Field(..., ge=-90, le=90, examples=[51.5887])
     longitude: float = Field(..., ge=-180, le=180, examples=[4.7750])
     temperature: float = Field(..., examples=[18.5])
-    weather_type: Literal["Storm", "Cloudy", "Fog", "Rain", "Sunny"] = Field(..., examples=["Sunny"])
-    date_time: Optional[datetime] = Field(None, description="Optioneel; standaard is nu")
+    weatherType: Literal["Storm", "Cloudy", "Fog", "Rain", "Sunny"] = Field(..., examples=["Sunny"])
+    dateTime: Optional[datetime] = Field(None, description="Optioneel; standaard is nu")
 
 
 class TrashTypeResponse(BaseModel):
-    predicted_type: str = Field(..., description="Voorspeld afvaltype")
+    predictedType: str = Field(..., description="Voorspeld afvaltype")
     probabilities: list[ClassProbability] = Field(..., description="Top waarschijnlijkheden")
     location: LocationOut = Field(..., description="Locatie informatie")
 
@@ -350,16 +350,16 @@ def predict_trash_type_only(req: TrashTypeRequest, _: str = Security(verify_api_
         raise HTTPException(503, "Trash-type model niet geladen")
     
     loc = location.lookup(req.latitude, req.longitude)
-    when = req.date_time or datetime.now()
+    when = req.dateTime or datetime.now()
     event_size = event_calendar.size_for(req.latitude, req.longitude, when)
     
     predicted_type, probs = _predict_trash_type(
-        req.latitude, req.longitude, req.weather_type, req.temperature,
+        req.latitude, req.longitude, req.weatherType, req.temperature,
         when, loc["type"], event_size
     )
     
     return TrashTypeResponse(
-        predicted_type=predicted_type,
+        predictedType=predicted_type,
         probabilities=[
             ClassProbability(label=label, probability=prob)
             for label, prob in probs[:5]  # Top 5
